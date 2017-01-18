@@ -263,7 +263,6 @@ void processNeighbourRequest() {
 void loop() {
   // check input power
   int state;
-
   state = (digitalRead(NATIONAL) == HIGH);
   if (state != is_input[NET_INDEX]) {
     changed[NET_INDEX] = 1;
@@ -287,14 +286,14 @@ void loop() {
   if (digitalRead(PLUS_BUTTON) == LOW)
     plusButton = 1;
 
-  if (digitalRead(PLUS_BUTTON == HIGH) && plusButton == 1) {
+  if (digitalRead(PLUS_BUTTON) == HIGH && plusButton == 1) {
     nb_led++;
 	debugSerial.println("add led : ");
 	debugSerial.println(nb_led);
     plusButton = 0;
   }
 
-  if (digitalRead(MINUS_BUTTON == LOW))
+  if (digitalRead(MINUS_BUTTON) == LOW)
     minusButton = 1;
 
   if (digitalRead(MINUS_BUTTON) == HIGH && minusButton == 1) {
@@ -304,10 +303,10 @@ void loop() {
     minusButton = 0;
   }
 
-  if (digitalRead(BUTTON == LOW))
+  if (digitalRead(BUTTON) == LOW)
 	maxButton = 1;
 
-  if (digitalRead(BUTTON == HIGH) && maxButton == 1){
+  if (digitalRead(BUTTON) == HIGH && maxButton == 1){
 	(max_led == 9)?6:9;
 	maxButton = 0;
   }
@@ -315,11 +314,23 @@ void loop() {
   //mise à jour LED
   for(int i=0; i< min(nb_led,max_led); i++){
 		if(i < 3){
-    		pixels.setPixelColor(i, pixels.Color(0,255,0)); // green
+			if(i < min(nb_led, max_led)){
+    			pixels.setPixelColor(i, pixels.Color(0,255,0)); // green
+			}else{
+				pixels.setPixelColor(i, pixels.Color(0, 0, 0)); //off			
+			}
 		}else if(i < 6){
-			pixels.setPixelColor(i, pixels.Color(255, 150, 0)); // orange
+			if (i < min(nb_led, max_led)){
+				pixels.setPixelColor(i, pixels.Color(255, 150, 0)); // orange
+			}else{
+				pixels.setPixelColor(i, pixels.Color(0, 0, 0)); //off
+			}
 		}else{
-			pixels.setPixelColor(i, pixels.Color(255, 0, 0)); // red
+			if(i < min(nb_led, max_led)){
+				pixels.setPixelColor(i, pixels.Color(255, 0, 0)); // red
+			}else{
+				pixels.setPixelColor(i, pixels.Color(0, 0, 0)); //off
+			}
 		}
     	pixels.show(); // This sends the updated pixel color to the hardware.
   }
