@@ -62,6 +62,7 @@ long timestamp = 0;
 long energyTs = 0;
 int minusButton = 0;
 int plusButton = 0;
+int maxButton = 0;
 uint8_t frameReceived[FRM_PAYLOAD_MAX_LENGTH];
 
 int powerSrc = NET_INDEX;
@@ -98,7 +99,6 @@ void initPin() {
   pinMode(A3, INPUT);
   pinMode(A4, INPUT);
   pinMode(A5, INPUT);
-  //pinMode(BUTTON, INPUT_PULLUP);
 
   //Set ADC resolution to 12 bits
   analogReadResolution(12) ;
@@ -236,15 +236,6 @@ double getEnergy(double power, float period) { //power in watt, period in second
   return power * period / 3600; //energy in Wh
 }
 
-void led_up(int led) {
-  digitalWrite(led, HIGH);
-}
-
-void led_down(int led) {
-  digitalWrite(led, LOW);
-
-}
-
 void sendNewConsumption(int consumption) {
   char value = SERIAL_NEW_CONSUMPTION_COMMAND;
   neighbourSerial.write(value);
@@ -309,10 +300,18 @@ void loop() {
     minusButton = 0;
   }
 
+  if (digitalRead(BUTTON == LOW))
+	maxButton = 1;
+
+  if (digitalRead(BUTTON == HIGH) && maxButton == 1){
+	(max_led == 9)?6:9;
+	maxButton = 0;
+  }
+
   //mise à jour LED
   for(int i=0; i< min(nb_led,max_led); i++){
 		if(i < 3){
-    	pixels.setPixelColor(i, pixels.Color(0,255,0)); // green.
+    		pixels.setPixelColor(i, pixels.Color(0,255,0)); // green.
 		}else if(i < 6){
 			pixels.setPixelColor(i, pixels.Color(255, 150, 0)); // orange
 		}else{
@@ -321,10 +320,9 @@ void loop() {
     pixels.show(); // This sends the updated pixel color to the hardware.
   }
 
-	if(nb_led != old_led_nr) {
-    update_led(nb_led);
+  if(nb_led != old_led_nr) {
     sendNewConsumption(nb_led);
-	}
+  }
   // compteur de mise à jour du calcul de l'énergie (en ms) 15000 = 15 secondes
   if (millis() - energyTs > 15000) {
     output[0] += getEnergy(getPower(0), 15); //energie consomé en Wh durant 15 secondes
