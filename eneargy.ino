@@ -62,7 +62,7 @@ bool is_input[4] = {false, false, false, false};
 bool relay[12] = {false, false, false, false, false, false, false, false, false, false, false, false};
 int nb_led = 0;
 
-void initPin(){
+void initPin() {
   //Initialize the LEDs and turn them all off
   pinMode(LED_RED, OUTPUT) ;
   pinMode(LED_GREEN, OUTPUT) ;
@@ -91,7 +91,7 @@ void initPin(){
   pinMode(A1, INPUT);
   pinMode(A2, INPUT);
   pinMode(A3, INPUT);
-  pinMode(A4, INPUT); 
+  pinMode(A4, INPUT);
   pinMode(A5, INPUT);
   //pinMode(BUTTON, INPUT_PULLUP);
 
@@ -141,7 +141,7 @@ void setup() {
   emon[3].current(A3, 111.1);
   emon[4].current(A4, 111.1);
   emon[5].current(A5, 111.1);
-  
+
   orange();
   delay(10000) ;
 
@@ -176,18 +176,18 @@ void setup() {
   sleep(5);
 }
 
-void sleep(unsigned short count){
-  for (uint8_t i = count; i > 0; i--){
+void sleep(unsigned short count) {
+  for (uint8_t i = count; i > 0; i--) {
     debugSerial.println(i) ;
     delay(1000) ;
   }
 }
 
-void debugFrame(const char* frame, int len){
-  if (frame != NULL){
+void debugFrame(const char* frame, int len) {
+  if (frame != NULL) {
     debugSerial.print("Payload: ");
     int i = 0;
-    for (i = 0; i < len; i++){
+    for (i = 0; i < len; i++) {
       unsigned char value = (unsigned char)frame[i];
       debugSerial.print(value, HEX); debugSerial.print(" ");
     }
@@ -205,37 +205,37 @@ double getEnergy(double power, float period) { //power in watt, period in second
   return power * period / 3600; //energy in Wh
 }
 
-void led_up(int led){
+void led_up(int led) {
   digitalWrite(led, HIGH);
 }
 
-void led_down(int led){
+void led_down(int led) {
   digitalWrite(led, LOW);
 
 }
-void update_led(int nb){
-  if(nb<1){
+void update_led(int nb) {
+  if (nb < 1) {
     led_down(DIODE0);
   }
-  if(nb<2){
+  if (nb < 2) {
     led_down(DIODE1);
-  }else{
+  } else {
     led_up(DIODE1);
-  }  
-  if(nb<3){
+  }
+  if (nb < 3) {
     led_down(DIODE2);
-  }else{
+  } else {
     led_up(DIODE2);
   }
-  if(nb<4){
+  if (nb < 4) {
     led_down(DIODE3);
-  }else{
+  } else {
     led_up(DIODE3);
   }
-  if(nb>=4){
+  if (nb >= 4) {
     led_up(DIODE4);
   }
-  
+
 }
 
 void loop() {
@@ -243,58 +243,58 @@ void loop() {
   if (digitalRead(PLUS_BUTTON) == LOW)
     plusButton = 1;
 
-  if (digitalRead(PLUS_BUTTON == HIGH) && plusButton == 1){
+  if (digitalRead(PLUS_BUTTON == HIGH) && plusButton == 1) {
     nb_led++;
     minusButton = 0;
   }
 
-  if (digitalRead(MINUS_BUTTON == LOW)
-    minusButton = 1;
+  if (digitalRead(MINUS_BUTTON) == LOW)
+      minusButton = 1;
 
-  if (digitalRead(MINUS_BUTTON == HIGH) && minusButton == 1){
+  if (digitalRead(MINUS_BUTTON == HIGH) && minusButton == 1) {
     nb_led--;
     minusButton = 0;
   }
-  //mise à jour LED
-  update_led(nb_led);
-  // compteur de mise à jour du calcul de l'énergie (en ms) 15000 = 15 secondes
-  if (millis() - energyTs > 15000) {
-    output[0] += getEnergy(getPower(0), 15); //energie consomé en Wh durant 15 secondes
+//mise à jour LED
+update_led(nb_led);
+// compteur de mise à jour du calcul de l'énergie (en ms) 15000 = 15 secondes
+if (millis() - energyTs > 15000) {
+  output[0] += getEnergy(getPower(0), 15); //energie consomé en Wh durant 15 secondes
     output[1] += getEnergy(getPower(1), 15);
-    if(is_input[0])
+    if (is_input[0])
       input[0] += getEnergy(getPower(2), 15);
-    if(is_input[1])
+    if (is_input[1])
       input[1] += getEnergy(getPower(3), 15);
-    if(is_input[2])
+    if (is_input[2])
       input[2] += getEnergy(getPower(4), 15);
-    if(is_input[3])
+    if (is_input[3])
       input[3] += getEnergy(getPower(5), 15);
   }
   // compteur pour le timing d'envoi des messages (en ms) 300000 = 5 minutes
   if (millis() - timestamp > 300000) {
 
-    int8_t inputs = 0;
-    int8_t relays = 0;
+  int8_t inputs = 0;
+  int8_t relays = 0;
 
-    for (int i=0; i < 4; i++){
-      if(is_input[i])
-        inputs = inputs & (1 << i+4);
-      if(relay[i])
+  for (int i = 0; i < 4; i++) {
+      if (is_input[i])
+        inputs = inputs & (1 << i + 4);
+      if (relay[i])
         inputs = inputs & (1 << i);
     }
 
-    for (int i=4; i < 12; i++){
-      if(relay[i])
-        relays = relays & (1 << i-4);
+    for (int i = 4; i < 12; i++) {
+      if (relay[i])
+        relays = relays & (1 << i - 4);
     }
-    
+
     LpwaOrange.flush();
     LpwaOrange.addByte(inputs);
     LpwaOrange.addByte(relays);
-    for(int i=0; i<sizeof(input)/sizeof(*input); i++){
+    for (int i = 0; i < sizeof(input) / sizeof(*input); i++) {
       LpwaOrange.addShort((short)input[i]);
     }
-    for (int i=0; i<sizeof(output)/sizeof(*output); i++){
+    for (int i = 0; i < sizeof(output) / sizeof(*output); i++) {
       LpwaOrange.addShort((short)output[i]);
     }
     int len;
