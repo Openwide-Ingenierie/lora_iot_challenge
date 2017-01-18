@@ -33,13 +33,6 @@
 #define FRM_PAYLOAD_MAX_LENGTH  255
 #define FIXED_VOLTAGE 230
 
-//LED
-#define DIODE0 2u
-#define DIODE1 3u
-#define DIODE2 4u
-#define DIODE3 5u
-#define DIODE4 6u
-
 //inputs
 #define NATIONAL 7u
 #define NEIGHBOUR 8u
@@ -69,13 +62,13 @@ uint8_t frameReceived[FRM_PAYLOAD_MAX_LENGTH];
 
 int powerSrc = NET;
 int currentNeighbourCons = 0;
-int maxCons[] = {0, 0, 0};
 bool changed[] = {0, 0, 0};
 int powerThreshold[] = {0, 0, 0};
 double output[2] = {0, 0};
 double input[3] = {0, 0, 0};
 bool is_input[3] = {false, false, false};
 int nb_led = 0;
+int max_led = 9;
 
 void initPin() {
   //Initialize the LEDs and turn them all off
@@ -85,15 +78,8 @@ void initPin() {
 
   pinMode(BUTTON, INPUT_PULLUP);
   pinMode(LED_BUILTIN, OUTPUT);
-
-  //Set LED as output
-  pinMode(DIODE0, OUTPUT);
-  pinMode(DIODE1, OUTPUT);
-  pinMode(DIODE2, OUTPUT);
-  pinMode(DIODE3, OUTPUT);
-  pinMode(DIODE4, OUTPUT);
-
-  //set power source as input
+  
+	//set power source as input
   pinMode(NATIONAL, INPUT);
   pinMode(NEIGHBOUR, INPUT);
   pinMode(ALT, INPUT);
@@ -129,9 +115,6 @@ void initPowerSrc(int pin, int srcIndex) {
 
 void initConsumer() {
   nb_led = 5;
-  maxCons[0] = 7;
-  maxCons[1] = 5;
-  maxCons[2] = 0;
   is_input[0] = true;
   is_input[1] = true;
   is_input[2] = false;
@@ -142,9 +125,6 @@ void initConsumer() {
 
 void initPoducer() {
   nb_led = 4;
-  maxCons[0] = 7;
-  maxCons[1] = 0;
-  maxCons[2] = 0;
   is_input[0] = 1;
   is_input[1] = 0;
   is_input[2] = 0;
@@ -189,11 +169,7 @@ void setup() {
 
   initPin();
   pixels.begin(); // This initializes the NeoPixel library.
-  for(int i=0;i<NUMPIXELS;i++){
-    pixels.setPixelColor(i, pixels.Color(200,0,0)); // Moderately bright green color.
-    pixels.show(); // This sends the updated pixel color to the hardware.
-  }
-
+ 
   orange();
   delay(10000) ;
 
@@ -265,30 +241,6 @@ void led_down(int led) {
   digitalWrite(led, LOW);
 
 }
-void update_led(int nb) {
-  if (nb < 1) {
-    led_down(DIODE0);
-  }
-  if (nb < 2) {
-    led_down(DIODE1);
-  } else {
-    led_up(DIODE1);
-  }
-  if (nb < 3) {
-    led_down(DIODE2);
-  } else {
-    led_up(DIODE2);
-  }
-  if (nb < 4) {
-    led_down(DIODE3);
-  } else {
-    led_up(DIODE3);
-  }
-  if (nb >= 4) {
-    led_up(DIODE4);
-  }
-
-}
 
 void loop() {
   //mise à jour compte LED
@@ -308,7 +260,17 @@ void loop() {
     minusButton = 0;
   }
   //mise à jour LED
-  update_led(nb_led);
+  for(int i=0; i< min(nb_led,max_led); i++){
+		if(i < 3){
+    	pixels.setPixelColor(i, pixels.Color(0,255,0)); // green.
+		}else if(i < 6){
+			pixels.setPixelColor(i, pixels.Color(255, 150, 0)); // orange
+		}else{
+			pixels.setPixelColor(i, pixels.Color(255, 0, 0)); // red
+		}
+    pixels.show(); // This sends the updated pixel color to the hardware.
+  }
+
   // compteur de mise à jour du calcul de l'énergie (en ms) 15000 = 15 secondes
   if (millis() - energyTs > 15000) {
     output[0] += getEnergy(getPower(0), 15); //energie consomé en Wh durant 15 secondes
