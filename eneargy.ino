@@ -297,7 +297,7 @@ void loop() {
   if (digitalRead(MINUS_BUTTON == LOW))
     minusButton = 1;
 
-  if (digitalRead(MINUS_BUTTON == HIGH) && minusButton == 1) {
+  if (digitalRead(MINUS_BUTTON) == HIGH && minusButton == 1) {
     nb_led--;
 	debugSerial.println("rm led : ");
 	debugSerial.println(nb_led);
