@@ -1,4 +1,3 @@
-#include <EmonLib.h>
 
 #include <EddystoneBeacon.h>
 #include <RN487x_CONST.h>
@@ -15,7 +14,7 @@
 
 #include <Adafruit_NeoPixel.h>
 #ifdef __AVR__
-  #include <avr/power.h>
+#include <avr/power.h>
 #endif
 
 #include "Arduino.h"
@@ -28,6 +27,7 @@
 
 #define LORA_PORT     5
 
+#define neighbourSerial Serial
 #define debugSerial SerialUSB
 #define loraSerial  Serial2
 #define FRM_PAYLOAD_MAX_LENGTH  255
@@ -45,6 +45,10 @@
 #define NEIGHBOUR 8u
 #define ALT 9u
 
+#define NET 0
+#define ALT 1
+#define NEI 2
+
 #define PLUS_BUTTON 10u
 #define MINUS_BUTTON 11u
 
@@ -57,21 +61,20 @@ const uint8_t appKey[16] = {0x0A, 0x6E, 0x2C, 0x57, 0x0D, 0x3B, 0xEF, 0x60, 0x13
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, PIN_PIXELS, NEO_GRB + NEO_KHZ800);
 
 //initialisation des variables
-int count = 0;
-int buttonCount = 0;
 long timestamp = 0;
 long energyTs = 0;
-int pushButton = 0;
-int nbrPush = 0;
 int minusButton = 0;
 int plusButton = 0;
 uint8_t frameReceived[FRM_PAYLOAD_MAX_LENGTH];
-EnergyMonitor emon[6];
 
+int powerSrc = NET;
+int currentNeighbourCons = 0;
+int maxCons[] = {0, 0, 0};
+bool changed[] = {0, 0, 0};
+int powerThreshold[] = {0, 0, 0};
 double output[2] = {0, 0};
-double input[4] = {0, 0, 0, 0};
-bool is_input[4] = {false, false, false, false};
-bool relay[12] = {false, false, false, false, false, false, false, false, false, false, false, false};
+double input[3] = {0, 0, 0};
+bool is_input[3] = {false, false, false};
 int nb_led = 0;
 
 void initPin() {
@@ -109,6 +112,45 @@ void initPin() {
 
   //Set ADC resolution to 12 bits
   analogReadResolution(12) ;
+
+  // Init Serial connection with neighbour
+  neighbourSerial.begin(9600);
+
+  // Init power src pin
+  initPowerSrc(NATIONAL, NET);
+  initPowerSrc(NEIGHBOUR, ALT);
+}
+
+void initPowerSrc(int pin, int srcIndex) {
+  pinMode(pin, INPUT);
+  digitalWrite(pin, HIGH);
+  is_input[srcIndex] = (digitalRead(pin) == HIGH);
+}
+
+void initConsumer() {
+  nb_led = 5;
+  maxCons[0] = 7;
+  maxCons[1] = 5;
+  maxCons[2] = 0;
+  is_input[0] = true;
+  is_input[1] = true;
+  is_input[2] = false;
+  powerThreshold[0] = 1;
+  powerThreshold[1] = 3;
+  powerThreshold[2] = 5;
+}
+
+void initPoducer() {
+  nb_led = 4;
+  maxCons[0] = 7;
+  maxCons[1] = 0;
+  maxCons[2] = 0;
+  is_input[0] = 1;
+  is_input[1] = 0;
+  is_input[2] = 0;
+  powerThreshold[0] = 3;
+  powerThreshold[1] = 4;
+  powerThreshold[2] = 5;
 }
 
 void red() {
@@ -148,15 +190,9 @@ void setup() {
   initPin();
   pixels.begin(); // This initializes the NeoPixel library.
   for(int i=0;i<NUMPIXELS;i++){
-       pixels.setPixelColor(i, pixels.Color(200,0,0)); // Moderately bright green color.
-       pixels.show(); // This sends the updated pixel color to the hardware.
+    pixels.setPixelColor(i, pixels.Color(200,0,0)); // Moderately bright green color.
+    pixels.show(); // This sends the updated pixel color to the hardware.
   }
-  emon[0].current(A0, 111.1);
-  emon[1].current(A1, 111.1);
-  emon[2].current(A2, 111.1);
-  emon[3].current(A3, 111.1);
-  emon[4].current(A4, 111.1);
-  emon[5].current(A5, 111.1);
 
   orange();
   delay(10000) ;
@@ -212,7 +248,7 @@ void debugFrame(const char* frame, int len) {
 }
 
 float getPower(int pin) {
-  double Irms = emon[pin].calcIrms(1480);
+  double Irms = nb_led * 46;
   double power = Irms * FIXED_VOLTAGE;
   return power;
 }
@@ -271,11 +307,11 @@ void loop() {
     nb_led--;
     minusButton = 0;
   }
-//mise à jour LED
-update_led(nb_led);
-// compteur de mise à jour du calcul de l'énergie (en ms) 15000 = 15 secondes
-if (millis() - energyTs > 15000) {
-  output[0] += getEnergy(getPower(0), 15); //energie consomé en Wh durant 15 secondes
+  //mise à jour LED
+  update_led(nb_led);
+  // compteur de mise à jour du calcul de l'énergie (en ms) 15000 = 15 secondes
+  if (millis() - energyTs > 15000) {
+    output[0] += getEnergy(getPower(0), 15); //energie consomé en Wh durant 15 secondes
     output[1] += getEnergy(getPower(1), 15);
     if (is_input[0])
       input[0] += getEnergy(getPower(2), 15);
@@ -289,24 +325,15 @@ if (millis() - energyTs > 15000) {
   // compteur pour le timing d'envoi des messages (en ms) 300000 = 5 minutes
   if (millis() - timestamp > 300000) {
 
-  int8_t inputs = 0;
-  int8_t relays = 0;
+    int8_t inputs = 0;
 
-  for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 4; i++) {
       if (is_input[i])
         inputs = inputs & (1 << i + 4);
-      if (relay[i])
-        inputs = inputs & (1 << i);
-    }
-
-    for (int i = 4; i < 12; i++) {
-      if (relay[i])
-        relays = relays & (1 << i - 4);
     }
 
     LpwaOrange.flush();
     LpwaOrange.addByte(inputs);
-    LpwaOrange.addByte(relays);
     for (int i = 0; i < SIZE_INPUT; i++) {
       LpwaOrange.addShort((short)input[i]);
     }
@@ -318,62 +345,61 @@ if (millis() - energyTs > 15000) {
     debugFrame(frame, len);
 
     switch (LpwaOrange.send(LORA_PORT, (const uint8_t*)frame, len)) {
-      case NoError:
-        debugSerial.println("Successful transmission.");
-        digitalWrite(LED_BUILTIN, LOW);
-        green();
-        count = 0;
-        delay(2000);
-        white();
-        break;
+    case NoError:
+      debugSerial.println("Successful transmission.");
+      digitalWrite(LED_BUILTIN, LOW);
+      green();
+      delay(2000);
+      white();
+      break;
 
-      case NoResponse:
-        debugSerial.println("There was no response from the device.");
-        red();
-        break ;
+    case NoResponse:
+      debugSerial.println("There was no response from the device.");
+      red();
+      break ;
 
-      case Timeout:
-        debugSerial.println("Connection timed-out. Check your serial connection to the device! Sleeping for 20sec.");
-        red();
-        delay(20000) ;
-        break ;
+    case Timeout:
+      debugSerial.println("Connection timed-out. Check your serial connection to the device! Sleeping for 20sec.");
+      red();
+      delay(20000) ;
+      break ;
 
-      case PayloadSizeError:
-        debugSerial.println("The size of the payload is greater than allowed. Transmission failed!");
-        red();
-        break ;
+    case PayloadSizeError:
+      debugSerial.println("The size of the payload is greater than allowed. Transmission failed!");
+      red();
+      break ;
 
-      case InternalError:
-        debugSerial.println("Oh No! This shouldn't happen. Something is really wrong! Try restarting the device!\r\nThe program will now halt.");
-        red();
-        while (1) {} ;
-        break ;
+    case InternalError:
+      debugSerial.println("Oh No! This shouldn't happen. Something is really wrong! Try restarting the device!\r\nThe program will now halt.");
+      red();
+      while (1) {} ;
+      break ;
 
-      case Busy:
-        debugSerial.println("The device is busy. Sleeping for 10 extra seconds.");
-        red();
-        delay(10000) ;
-        break ;
+    case Busy:
+      debugSerial.println("The device is busy. Sleeping for 10 extra seconds.");
+      red();
+      delay(10000) ;
+      break ;
 
-      case NetworkFatalError:
-        debugSerial.println("There is a non-recoverable error with the network connection. You should re-connect.\r\nThe program will now halt.");
-        red();
-        while (1) {} ;
-        break ;
+    case NetworkFatalError:
+      debugSerial.println("There is a non-recoverable error with the network connection. You should re-connect.\r\nThe program will now halt.");
+      red();
+      while (1) {} ;
+      break ;
 
-      case NotConnected:
-        debugSerial.println("The device is not connected to the network. Please connect to the network before attempting to send data.\r\nThe program will now halt.");
-        red();
-        while (1) {} ;
-        break ;
+    case NotConnected:
+      debugSerial.println("The device is not connected to the network. Please connect to the network before attempting to send data.\r\nThe program will now halt.");
+      red();
+      while (1) {} ;
+      break ;
 
-      case NoAcknowledgment:
-        debugSerial.println("There was no acknowledgment sent back!");
-        red();
-        break ;
+    case NoAcknowledgment:
+      debugSerial.println("There was no acknowledgment sent back!");
+      red();
+      break ;
 
-      default:
-        break ;
+    default:
+      break ;
     }
 
 
@@ -386,7 +412,6 @@ if (millis() - energyTs > 15000) {
     }
     debugSerial.println("");
 
-    nbrPush = 0;
     timestamp = millis();
     energyTs = millis();
 
