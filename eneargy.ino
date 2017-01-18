@@ -283,12 +283,14 @@ void loop() {
   }
 
   //mise à jour compte LED
-  int ol_led_nr = nb_led;
+  int old_led_nr = nb_led;
   if (digitalRead(PLUS_BUTTON) == LOW)
     plusButton = 1;
 
   if (digitalRead(PLUS_BUTTON == HIGH) && plusButton == 1) {
     nb_led++;
+	debugSerial.println("add led : ");
+	debugSerial.println(nb_led);
     minusButton = 0;
   }
 
@@ -297,6 +299,8 @@ void loop() {
 
   if (digitalRead(MINUS_BUTTON == HIGH) && minusButton == 1) {
     nb_led--;
+	debugSerial.println("rm led : ");
+	debugSerial.println(nb_led);
     minusButton = 0;
   }
 
@@ -311,13 +315,13 @@ void loop() {
   //mise à jour LED
   for(int i=0; i< min(nb_led,max_led); i++){
 		if(i < 3){
-    		pixels.setPixelColor(i, pixels.Color(0,255,0)); // green.
+    		pixels.setPixelColor(i, pixels.Color(0,255,0)); // green
 		}else if(i < 6){
 			pixels.setPixelColor(i, pixels.Color(255, 150, 0)); // orange
 		}else{
 			pixels.setPixelColor(i, pixels.Color(255, 0, 0)); // red
 		}
-    pixels.show(); // This sends the updated pixel color to the hardware.
+    	pixels.show(); // This sends the updated pixel color to the hardware.
   }
 
   if(nb_led != old_led_nr) {
