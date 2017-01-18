@@ -20,6 +20,9 @@
 
 #include "Arduino.h"
 
+#define SIZE_INPUT 3
+#define SIZE_OUTPUT 2
+
 #define PIN_PIXELS      6
 #define NUMPIXELS      59
 
@@ -304,10 +307,10 @@ if (millis() - energyTs > 15000) {
     LpwaOrange.flush();
     LpwaOrange.addByte(inputs);
     LpwaOrange.addByte(relays);
-    for (int i = 0; i < sizeof(input) / sizeof(*input); i++) {
+    for (int i = 0; i < SIZE_INPUT; i++) {
       LpwaOrange.addShort((short)input[i]);
     }
-    for (int i = 0; i < sizeof(output) / sizeof(*output); i++) {
+    for (int i = 0; i < SIZE_OUTPUT; i++) {
       LpwaOrange.addShort((short)output[i]);
     }
     int len;
@@ -387,10 +390,10 @@ if (millis() - energyTs > 15000) {
     timestamp = millis();
     energyTs = millis();
 
-    for (int i = 0; i < sizeof(output) / sizeof(*output); i++)
+    for (int i = 0; i < SIZE_OUTPUT; i++)
       output[i] = 0;
 
-    for (int i = 0; i < sizeof(input) / sizeof(*input); i++)
+    for (int i = 0; i < SIZE_INPUT; i++)
       input[i] = 0;
   }
 }
