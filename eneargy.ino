@@ -304,7 +304,7 @@ void processNeighbourRequest() {
   char command;
   char data;
   command = neighbourSerial.read();
-  neighbourConsumption = neighbourSerial.read();
+  data = neighbourSerial.read();
 
   switch(command) {
   case SERIAL_NEW_CONSUMPTION_COMMAND:
@@ -321,7 +321,7 @@ void loop() {
   // check input power
   int state;
 
-  state = (digitalRead(NETWORK) == HIGH);
+  state = (digitalRead(NATIONAL) == HIGH);
   if (state != is_input[NET_INDEX]) {
     changed[NET_INDEX] = 1;
     is_input[NET_INDEX] = state;
@@ -477,7 +477,7 @@ void loop() {
   }
 
   if(neighbourSerial.available()) {
-    processNeighbourRequest()
+    processNeighbourRequest();
   }
 
 }
