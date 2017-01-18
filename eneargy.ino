@@ -312,7 +312,7 @@ void loop() {
   }
 
   //mise à jour LED
-  for(int i=0; i< min(nb_led,max_led); i++){
+  for(int i=0; i< 9; i++){
 		if(i < 3){
 			if(i < min(nb_led, max_led)){
     			pixels.setPixelColor(i, pixels.Color(0,255,0)); // green
