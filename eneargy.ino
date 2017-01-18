@@ -13,7 +13,15 @@
 #include <Utils.h>
 #include <StringLiterals.h>
 
+#include <Adafruit_NeoPixel.h>
+#ifdef __AVR__
+  #include <avr/power.h>
+#endif
+
 #include "Arduino.h"
+
+#define PIN_PIXELS      6
+#define NUMPIXELS      59
 
 #define LORA_PORT     5
 
@@ -43,6 +51,7 @@ const uint8_t devEUI[8]  = {0x21, 0x5F, 0xD5, 0x69, 0x16, 0x7F, 0x5D, 0x9A} ;
 const uint8_t appEUI[8]  = {0xA0, 0xAC, 0xB2, 0x67, 0x0D, 0xA9, 0xB1, 0xAE} ;
 const uint8_t appKey[16] = {0x0A, 0x6E, 0x2C, 0x57, 0x0D, 0x3B, 0xEF, 0x60, 0x13, 0xD1, 0x14, 0xCB, 0x13, 0xD8, 0x7B, 0xDA};
 
+Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, PIN_PIXELS, NEO_GRB + NEO_KHZ800);
 
 //initialisation des variables
 int count = 0;
@@ -134,7 +143,11 @@ void setup() {
   loraSerial.begin(LpwaOrange.getDefaultBaudRate());
 
   initPin();
-
+  pixels.begin(); // This initializes the NeoPixel library.
+  for(int i=0;i<NUMPIXELS;i++){
+       pixels.setPixelColor(i, pixels.Color(200,0,0)); // Moderately bright green color.
+       pixels.show(); // This sends the updated pixel color to the hardware.
+  }
   emon[0].current(A0, 111.1);
   emon[1].current(A1, 111.1);
   emon[2].current(A2, 111.1);
@@ -248,8 +261,8 @@ void loop() {
     minusButton = 0;
   }
 
-  if (digitalRead(MINUS_BUTTON) == LOW)
-      minusButton = 1;
+  if (digitalRead(MINUS_BUTTON == LOW))
+    minusButton = 1;
 
   if (digitalRead(MINUS_BUTTON == HIGH) && minusButton == 1) {
     nb_led--;
