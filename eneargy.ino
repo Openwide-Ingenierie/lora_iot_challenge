@@ -291,7 +291,7 @@ void loop() {
     nb_led++;
 	debugSerial.println("add led : ");
 	debugSerial.println(nb_led);
-    minusButton = 0;
+    plusButton = 0;
   }
 
   if (digitalRead(MINUS_BUTTON == LOW))
