@@ -45,12 +45,16 @@
 #define NEIGHBOUR 8u
 #define ALT 9u
 
-#define NET 0
-#define ALT 1
-#define NEI 2
+#define NET_INDEX 0
+#define ALT_INDEX 1
+#define NEI_INDEX 2
 
 #define PLUS_BUTTON 10u
 #define MINUS_BUTTON 11u
+
+#define SERIAL_NEW_CONSUMPTION_COMMAND 'c' // consumption
+#define SERIAL_NEED_POWER_COMMAND 'b'      // buy
+#define SERIAL_POWER_AVAILABLE_COMMAND 's' // sell
 
 // OTAA PRODUCTION Keys - Use your own KEYS!
 
@@ -67,7 +71,7 @@ int minusButton = 0;
 int plusButton = 0;
 uint8_t frameReceived[FRM_PAYLOAD_MAX_LENGTH];
 
-int powerSrc = NET;
+int powerSrc = NET_INDEX;
 int currentNeighbourCons = 0;
 int maxCons[] = {0, 0, 0};
 bool changed[] = {0, 0, 0};
@@ -117,13 +121,12 @@ void initPin() {
   neighbourSerial.begin(9600);
 
   // Init power src pin
-  initPowerSrc(NATIONAL, NET);
-  initPowerSrc(NEIGHBOUR, ALT);
+  initPowerSrc(NATIONAL, NET_INDEX);
+  initPowerSrc(NEIGHBOUR, ALT_INDEX);
 }
 
 void initPowerSrc(int pin, int srcIndex) {
   pinMode(pin, INPUT);
-  digitalWrite(pin, HIGH);
   is_input[srcIndex] = (digitalRead(pin) == HIGH);
 }
 
@@ -290,8 +293,54 @@ void update_led(int nb) {
 
 }
 
+void sendNewConsumption(int consumption) {
+  char value = SERIAL_NEW_CONSUMPTION_COMMAND;
+  neighbourSerial.write(value);
+  value = consumption;
+  neighbourSerial.write(value);
+}
+
+void processNeighbourRequest() {
+  char command;
+  char data;
+  command = neighbourSerial.read();
+  neighbourConsumption = neighbourSerial.read();
+
+  switch(command) {
+  case SERIAL_NEW_CONSUMPTION_COMMAND:
+    currentNeighbourCons = data;
+    break;
+  case SERIAL_NEED_POWER_COMMAND:
+    break;
+  case SERIAL_POWER_AVAILABLE_COMMAND:
+    break;
+  }
+}
+
 void loop() {
+  // check input power
+  int state;
+
+  state = (digitalRead(NETWORK) == HIGH);
+  if (state != is_input[NET_INDEX]) {
+    changed[NET_INDEX] = 1;
+    is_input[NET_INDEX] = state;
+  }
+
+  state = (digitalRead(NEIGHBOUR) == HIGH);
+  if (state != is_input[NEI_INDEX]) {
+    changed[NEI_INDEX] = 1;
+    is_input[NET_INDEX] = state;
+  }
+
+  state = (digitalRead(ALT) == HIGH);
+  if (state != is_input[ALT_INDEX]) {
+    changed[ALT_INDEX] = 1;
+    is_input[NET_INDEX] = state;
+  }
+
   //mise à jour compte LED
+  int ol_led_nr = nb_led;
   if (digitalRead(PLUS_BUTTON) == LOW)
     plusButton = 1;
 
@@ -307,8 +356,13 @@ void loop() {
     nb_led--;
     minusButton = 0;
   }
+
   //mise à jour LED
-  update_led(nb_led);
+  if(nb_led != ol_led_nr) {
+    update_led(nb_led);
+    sendNewConsumption(nb_led);
+  }
+
   // compteur de mise à jour du calcul de l'énergie (en ms) 15000 = 15 secondes
   if (millis() - energyTs > 15000) {
     output[0] += getEnergy(getPower(0), 15); //energie consomé en Wh durant 15 secondes
@@ -421,4 +475,9 @@ void loop() {
     for (int i = 0; i < SIZE_INPUT; i++)
       input[i] = 0;
   }
+
+  if(neighbourSerial.available()) {
+    processNeighbourRequest()
+  }
+
 }
