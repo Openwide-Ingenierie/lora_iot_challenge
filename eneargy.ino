@@ -307,7 +307,12 @@ void loop() {
 	maxButton = 1;
 
   if (digitalRead(BUTTON) == HIGH && maxButton == 1){
-	(max_led == 9)?6:9;
+	if(max_led == 9){
+		max_led = 6;
+	}
+	else{
+		max_led = 9;
+	}
 	maxButton = 0;
   }
 
