@@ -19,8 +19,8 @@
 
 #include "Arduino.h"
 
-#define SIZE_INPUT 3
-#define SIZE_OUTPUT 2
+#define SIZE_INPUT 2
+#define SIZE_OUTPUT 3
 
 #define PIN_PIXELS      6
 #define NUMPIXELS      59
@@ -40,7 +40,6 @@
 
 #define NET_INDEX 0
 #define ALT_INDEX 1
-#define NEI_INDEX 2
 
 #define PLUS_BUTTON 10u
 #define MINUS_BUTTON 11u
@@ -67,13 +66,12 @@ uint8_t frameReceived[FRM_PAYLOAD_MAX_LENGTH];
 
 int powerSrc = NET_INDEX;
 int currentNeighbourCons = 0;
-bool changed[] = {0, 0, 0};
-int powerThreshold[] = {0, 0, 0};
-double output[2] = {0, 0};
-double input[3] = {0, 0, 0};
-bool is_input[3] = {false, false, false};
+int powerThreshold[SIZE_OUTPUT] = {0, 0, 0};
+double output[SIZE_OUTPUT] = {0, 0, 0};
+double input[SIZE_INPUT] = {0, 0};
+bool is_input[SIZE_INPUT] = {false, false};
 int nb_led = 0;
-int max_led = 9;
+int max_led = 6;
 
 void initPin() {
   //Initialize the LEDs and turn them all off
@@ -108,7 +106,9 @@ void initPin() {
 
   // Init power src pin
   initPowerSrc(NATIONAL, NET_INDEX);
-  initPowerSrc(NEIGHBOUR, ALT_INDEX);
+  initPowerSrc(ALT, ALT_INDEX);
+
+  initPoducer();
 }
 
 void initPowerSrc(int pin, int srcIndex) {
@@ -119,18 +119,17 @@ void initPowerSrc(int pin, int srcIndex) {
 void initConsumer() {
   nb_led = 5;
   is_input[0] = true;
-  is_input[1] = true;
-  is_input[2] = false;
+  is_input[1] = false;
+  input[ALT_INDEX] = 0;
   powerThreshold[0] = 1;
   powerThreshold[1] = 3;
   powerThreshold[2] = 5;
 }
 
 void initPoducer() {
-  nb_led = 4;
-  is_input[0] = 1;
-  is_input[1] = 0;
-  is_input[2] = 0;
+  nb_led = 8;
+  is_input[0] = true;
+  is_input[1] = true;
   powerThreshold[0] = 3;
   powerThreshold[1] = 4;
   powerThreshold[2] = 5;
@@ -226,8 +225,8 @@ void debugFrame(const char* frame, int len) {
   }
 }
 
-float getPower(int pin) {
-  double Irms = nb_led * 46;
+float getPower(int load) {
+  double Irms = load * 46;
   double power = Irms * FIXED_VOLTAGE;
   return power;
 }
@@ -261,26 +260,6 @@ void processNeighbourRequest() {
 }
 
 void loop() {
-  // check input power
-  int state;
-  state = (digitalRead(NATIONAL) == HIGH);
-  if (state != is_input[NET_INDEX]) {
-    changed[NET_INDEX] = 1;
-    is_input[NET_INDEX] = state;
-  }
-
-  state = (digitalRead(NEIGHBOUR) == HIGH);
-  if (state != is_input[NEI_INDEX]) {
-    changed[NEI_INDEX] = 1;
-    is_input[NET_INDEX] = state;
-  }
-
-  state = (digitalRead(ALT) == HIGH);
-  if (state != is_input[ALT_INDEX]) {
-    changed[ALT_INDEX] = 1;
-    is_input[NET_INDEX] = state;
-  }
-
   //mise à jour compte LED
   int old_led_nr = nb_led;
   if (digitalRead(PLUS_BUTTON) == LOW)
@@ -345,35 +324,74 @@ void loop() {
   }
   // compteur de mise à jour du calcul de l'énergie (en ms) 15000 = 15 secondes
   if (millis() - energyTs > 15000) {
-    output[0] += getEnergy(getPower(0), 15); //energie consomé en Wh durant 15 secondes
-    output[1] += getEnergy(getPower(1), 15);
-    if (is_input[0])
-      input[0] += getEnergy(getPower(2), 15);
-    if (is_input[1])
-      input[1] += getEnergy(getPower(3), 15);
-    if (is_input[2])
-      input[2] += getEnergy(getPower(4), 15);
-    if (is_input[3])
-      input[3] += getEnergy(getPower(5), 15);
+    //energie consomé en Wh durant 15 secondes
+    int load = (nb_led > max_led) ? max_led : nb_led;
+    debugSerial.println("DATAS0 :");
+    debugSerial.println(nb_led);
+    debugSerial.println(max_led);
+    debugSerial.println(load);
+
+    if(max_led >= 3) {
+      if(load > 3)
+        output[0] += getEnergy(getPower(3), 15);
+      else if(load > 0)
+        output[0] += getEnergy(getPower(load), 15);
+      else
+        output[0] += getEnergy(0, 15);
+      load -= 3;
+    }
+    
+    if(max_led >= 6) {
+      if(load > 3)
+        output[1] += getEnergy(getPower(3), 15);
+      else if(load > 0)
+        output[1] += getEnergy(getPower(load), 15);
+      else
+        output[1] += getEnergy(0, 15);
+      load -= 3;
+    }
+    
+    if(max_led >= 9) {
+      if(load > 3)
+        output[2] += getEnergy(getPower(3), 15);
+      else if(load > 0)
+        output[2] += getEnergy(getPower(load), 15);
+      else
+        output[2] += getEnergy(0, 15);
+      load -= 3;
+    }
+    
+    if(is_input[ALT_INDEX])
+      input[ALT_INDEX] += getEnergy(getPower(2), 15);
+
+    debugSerial.println("DATAS :");
+    debugSerial.println(output[0]);
+    debugSerial.println(output[1]);
+    debugSerial.println(output[2]);
+    debugSerial.println(input[ALT_INDEX]);
+
+    energyTs = millis();
   }
   // compteur pour le timing d'envoi des messages (en ms) 300000 = 5 minutes
-  if (millis() - timestamp > 300000) {
+  if (millis() - timestamp > 60000) {
 
-    int8_t inputs = 0;
-
-    for (int i = 0; i < 4; i++) {
-      if (is_input[i])
-        inputs = inputs & (1 << i + 4);
-    }
+    short state = 0;
+    if(nb_led < max_led) state = 7;
+    else if(max_led > 3) state = 3;
+    else if(max_led == 0) state = 0;
+    else state = 1;
 
     LpwaOrange.flush();
-    LpwaOrange.addByte(inputs);
-    for (int i = 0; i < SIZE_INPUT; i++) {
-      LpwaOrange.addShort((short)input[i]);
-    }
-    for (int i = 0; i < SIZE_OUTPUT; i++) {
-      LpwaOrange.addShort((short)output[i]);
-    }
+    LpwaOrange.addByte(state);
+    LpwaOrange.addShort(output[0]);
+    LpwaOrange.addShort(output[1]);
+    LpwaOrange.addShort(output[2]);
+
+    short total_value = output[0] + output[1] + output[2];
+    LpwaOrange.addShort(total_value);
+
+    LpwaOrange.addShort(input[ALT_INDEX]);
+
     int len;
     const char* frame = LpwaOrange.getFramePayload(&len);
     debugFrame(frame, len);
@@ -436,7 +454,6 @@ void loop() {
       break ;
     }
 
-
     int frameReceivedSize = LpwaOrange.receive(frameReceived, FRM_PAYLOAD_MAX_LENGTH);
 
     debugSerial.print("received : ");
@@ -447,7 +464,6 @@ void loop() {
     debugSerial.println("");
 
     timestamp = millis();
-    energyTs = millis();
 
     for (int i = 0; i < SIZE_OUTPUT; i++)
       output[i] = 0;
